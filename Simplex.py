@@ -1,17 +1,26 @@
-from math import comb
 import numpy as np
+from scipy.special import comb
 from scipy import linalg
+from enum import Enum
 
-BLAND_RULE = 1
-DANTZING_RULE = 2
 
-INFEASIBLE_CODE = 1
-FINITE_OPTIMAL_CODE = 2
-UNBOUNDED_OPTIMAL_CODE = 3
-CYCLE_DETECTED_CODE = 4
+class PickingRule(Enum):
+    BLAND_RULE = 1
+    DANTZING_RULE = 2
+
+
+class ResultCode(Enum):
+    INFEASIBLE = 1
+    FINITE_OPTIMAL = 2
+    UNBOUNDED_OPTIMAL = 3
+    CYCLE_DETECTED = 4
+
 
 EPSILON = 1e-6
 PAIRS_LIMIT = 5
+
+# Todo: 1) check if copies actions are needed
+#       2) connect refactorization to the main flow
 
 
 class Simplex(object):
@@ -45,10 +54,10 @@ class Simplex(object):
                self.A[:, self.xn]
 
     def _get_entering_options(self, z_coefs, rule):
-        if rule == DANTZING_RULE:
+        if rule == PickingRule.DANTZING_RULE:
             sorted_indices = z_coefs.argsort()[-PAIRS_LIMIT:][::-1]
             return self.xn[sorted_indices]
-        elif rule == BLAND_RULE:
+        elif rule == PickingRule.BLAND_RULE:
             sorted_positive_vars = sorted(self.xn[np.where(z_coefs > 0)])
             return sorted_positive_vars[:PAIRS_LIMIT]
         else:
@@ -158,20 +167,21 @@ class Simplex(object):
             z_coefs = self._reconstruct_z_coefs()
             if all(z_coefs <= 0):
                 optimal_score = sum(self.cur_assignment * self.c)
-                return FINITE_OPTIMAL_CODE, self.cur_assignment, optimal_score
+                return ResultCode.FINITE_OPTIMAL, self.cur_assignment, optimal_score
 
             entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(z_coefs,
                                                                       rule)
             if all(d <= 0):
-                return UNBOUNDED_OPTIMAL_CODE, None, None
+                return ResultCode.UNBOUNDED_OPTIMAL, None, None
 
             self._swap_vars(entering_idx, leaving_idx)
             self._update_assignment(d, t, entering_idx)
 
             self.cur_iteration += 1
-        return CYCLE_DETECTED_CODE, None, None
+            # self._refactorize_if_needed()
+        return ResultCode.CYCLE_DETECTED, None, None
 
-    def get_optimal_solution(self, A, b, c, rule=BLAND_RULE):
+    def get_optimal_solution(self, A, b, c, rule=PickingRule.BLAND_RULE):
         self._load_scenario(A, b, c)
 
         if not all(b >= 0):
@@ -179,7 +189,7 @@ class Simplex(object):
             _, aux_assignment, aux_score = \
                 self._get_optimal_from_feasible_solution(rule=rule)
             if aux_score != 0:
-                return INFEASIBLE_CODE, None, None
+                return ResultCode.INFEASIBLE, None, None
             self._pivot_to_original_problem(c)
 
         return self._get_optimal_from_feasible_solution(rule)
@@ -191,7 +201,7 @@ class Simplex(object):
         else:
             self._init_aux_problem(A, b, c)
             aux_optimal_score = self._get_optimal_from_feasible_solution(
-                rule=BLAND_RULE)[2]
+                rule=PickingRule.BLAND_RULE)[2]
             if aux_optimal_score == 0:
                 return True
             return False
