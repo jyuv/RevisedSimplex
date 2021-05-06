@@ -1,3 +1,4 @@
+import math
 import random
 import numpy as np
 from scipy.optimize import linprog
@@ -6,15 +7,22 @@ from Simplex import Simplex, ResultCode
 RANDOM_CASES = 100
 MAX_M = 15
 MAX_N = 10
+MIN_INT_ELEMENT = -2147483648
+MAX_INT_ELEMENT = 2147483647
+
+LINPROG_RCODE_TO_RCODE = {0: ResultCode.FINITE_OPTIMAL,
+                          1: ResultCode.CYCLE_DETECTED,
+                          2: ResultCode.INFEASIBLE,
+                          3: ResultCode.UNBOUNDED_OPTIMAL}
 
 SIMPLEX_SOLVER = Simplex()
 
 
 def generate_random_case():
     m, n = [random.randint(1, end) for end in (MAX_M, MAX_N)]
-    A = np.random.randint(-2147483648, 2147483647, size=(m, n))
-    b = np.random.randint(-2147483648, 2147483647, size=m)
-    c = np.random.randint(-2147483648, 2147483647, size=n)
+    A = np.random.randint(MIN_INT_ELEMENT, MAX_INT_ELEMENT, size=(m, n))
+    b = np.random.randint(MIN_INT_ELEMENT, MAX_INT_ELEMENT, size=m)
+    c = np.random.randint(MIN_INT_ELEMENT, MAX_INT_ELEMENT, size=n)
 
     return A, b, c
 
@@ -48,17 +56,19 @@ def test_finite_feasible():
     assert SIMPLEX_SOLVER.has_feasible_solution(A, b, c)
     optimal_res = SIMPLEX_SOLVER.get_optimal_solution(A, b, c)
     assert optimal_res[0] == ResultCode.FINITE_OPTIMAL
-    assert optimal_res[2] == 10.5
+    assert math.isclose(optimal_res[2], 10.5)
 
 
 def test_random_cases():
-    """
     for case in range(RANDOM_CASES):
         A, b, c = generate_random_case()
-        print(A, b, c)
-        linprog(A_ub=A, b_ub=b, c=c, method="revised simplex")
-    """
-    return NotImplementedError
 
+        res_code, _, optimal_obj = SIMPLEX_SOLVER.get_optimal_solution(A, b, c)
 
+        expected_res = linprog(A_ub=A, b_ub=b, c=-c, method="revised simplex")
 
+        if expected_res.status in LINPROG_RCODE_TO_RCODE:
+            expected_res_code = LINPROG_RCODE_TO_RCODE[expected_res.status]
+            assert expected_res_code == res_code
+            if expected_res_code == ResultCode.FINITE_OPTIMAL:
+                assert math.isclose(expected_res.fun, -optimal_obj)
