@@ -1,3 +1,7 @@
+import sys
+from dataclasses import dataclass
+from typing import Union
+
 import numpy as np
 from scipy.special import comb
 from scipy import linalg
@@ -16,11 +20,28 @@ class ResultCode(Enum):
     CYCLE_DETECTED = 4
 
 
-EPSILON = 1e-6
+@dataclass
+class SimplexResult(object):
+    res_code: ResultCode
+    assignment: Union[None, np.ndarray]
+    optimal_score: float
+
+
+EPSILON = sys.float_info.epsilon
 PAIRS_LIMIT = 5
 
+
+def is_close_to_zero(arr, or_below=False, or_above=False):
+    if or_below and or_above:
+        return np.full(arr.shape, True)
+    elif not or_below and not or_above:
+        return np.isclose(arr, 0, atol=EPSILON)
+    elif or_below:
+        return np.logical_or(np.isclose(arr, 0, atol=EPSILON), arr <= 0)
+    else:
+        return np.logical_or(np.isclose(arr, 0, atol=EPSILON), arr >= 0)
+
 # Todo: 1) check if copies actions are needed
-#       2) connect refactorization to the main flow
 
 
 class Simplex(object):
@@ -49,10 +70,13 @@ class Simplex(object):
         self.cur_iteration = 1
         self.max_iterations = comb(self.nvars, self.nrows)
 
+    # z is a representation of the objective function only using the basis vars
     def _reconstruct_z_coefs(self):
         return self.c[self.xn] - self.c[self.xb] @ self.estimated_inverse_B @\
                self.A[:, self.xn]
 
+    # This will get us options for variables to insert to the basis
+    # (the picked one will be replaced with a var currently in the basis)
     def _get_entering_options(self, z_coefs, rule):
         if rule == PickingRule.DANTZING_RULE:
             sorted_indices = z_coefs.argsort()[-PAIRS_LIMIT:][::-1]
@@ -63,6 +87,7 @@ class Simplex(object):
         else:
             raise ValueError("Unrecognized picking rule")
 
+    # leaving var is the var we want to remove from the basis
     def _pick_leaving_var(self, d):
         bounded_vars_idxs = self.xb[d > 0]
         bounds_vector = self.cur_assignment[bounded_vars_idxs] / d[d > 0]
@@ -78,7 +103,7 @@ class Simplex(object):
         optional_pairs = []
         for entering_var_idx in potential_entering:
             d = self._get_d(entering_var_idx)
-            if all(d <= 0):
+            if all(is_close_to_zero(d, or_below=True)):
                 return entering_var_idx, None, d, None
 
             leaving_var_idx, t = self._pick_leaving_var(d)
@@ -94,6 +119,7 @@ class Simplex(object):
         largest_eta_option_index = int(np.argmax(optional_etas))
         return optional_pairs[largest_eta_option_index][1:]
 
+    # d is the negation the entering_var coefs in the equations
     def _get_d(self, entering_var_idx):
         return self.estimated_inverse_B @ self.A[:, entering_var_idx]
 
@@ -108,16 +134,20 @@ class Simplex(object):
         return new_eta, new_inverse_eta
 
     def _refactorize_if_needed(self):
+        if np.linalg.cond(self.A[:, self.xb]) >= 1/EPSILON:
+            # singular matrix
+            return False
+
         estimated_b = self.estimated_B @ self.cur_assignment[self.xb]
+        estimated_b = estimated_b.reshape((-1, 1))
         if not np.allclose(estimated_b, self.b, atol=EPSILON):
             self._refactorize_basis()
             return True
         return False
 
     def _refactorize_basis(self):
-        l, u = linalg.lu(self.A[self.xb], True)
-        self.estimated_B = l @ u
-        self.estimated_inverse_B = linalg.inverse(u) @ linalg.inverse(l)
+        l, u = linalg.lu(self.A[:, self.xb], True)
+        self.estimated_inverse_B = linalg.inv(u) @ linalg.inv(l)
 
     def _update_estimated_b_and_inverse(self, loc_replaced, d):
         new_eta, new_inverse_eta = self._get_eta_and_inverse(loc_replaced, d)
@@ -149,7 +179,7 @@ class Simplex(object):
         leaving_var_idx = self.xb[most_negative_b]
         self._swap_vars(0, leaving_var_idx)
 
-        # update assignment
+        # adapt assignment
         self.cur_assignment[self.xn] = 0
         self.cur_assignment[self.xb] = self.b.reshape(-1) - float(min(b))
         self.cur_assignment[0] = - min(b)
@@ -165,26 +195,26 @@ class Simplex(object):
     def _get_optimal_from_feasible_solution(self, rule):
         while self.cur_iteration <= self.max_iterations:
             z_coefs = self._reconstruct_z_coefs()
-            if all(z_coefs <= 0):
+            if all(is_close_to_zero(z_coefs, or_below=True)):
                 optimal_score = sum(self.cur_assignment * self.c)
                 return ResultCode.FINITE_OPTIMAL, self.cur_assignment, optimal_score
 
             entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(z_coefs,
                                                                       rule)
-            if all(d <= 0):
+            if all(is_close_to_zero(d, or_below=True)):
                 return ResultCode.UNBOUNDED_OPTIMAL, None, None
 
             self._swap_vars(entering_idx, leaving_idx)
             self._update_assignment(d, t, entering_idx)
 
             self.cur_iteration += 1
-            # self._refactorize_if_needed()
+            self._refactorize_if_needed()
         return ResultCode.CYCLE_DETECTED, None, None
 
     def get_optimal_solution(self, A, b, c, rule=PickingRule.BLAND_RULE):
         self._load_scenario(A, b, c)
 
-        if not all(b >= 0):
+        if not all(is_close_to_zero(b, or_above=True)):
             self._init_aux_problem(A, b, c)
             _, aux_assignment, aux_score = \
                 self._get_optimal_from_feasible_solution(rule=rule)
@@ -196,7 +226,7 @@ class Simplex(object):
 
     def has_feasible_solution(self, A, b, c):
         self._load_scenario(A, b, c)
-        if all(b >= 0):
+        if all(is_close_to_zero(b, or_above=True)):
             return True
         else:
             self._init_aux_problem(A, b, c)
