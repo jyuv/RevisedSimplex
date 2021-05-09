@@ -1,3 +1,4 @@
+import math
 import sys
 from dataclasses import dataclass
 from typing import Union
@@ -24,14 +25,14 @@ class ResultCode(Enum):
 class SimplexResult(object):
     res_code: ResultCode
     assignment: Union[None, np.ndarray]
-    optimal_score: float
+    optimal_score: Union[None, float]
 
 
 EPSILON = sys.float_info.epsilon
 PAIRS_LIMIT = 5
 
 
-def is_close_to_zero(arr, or_below=False, or_above=False):
+def is_close_to_zero(arr, or_below=False, or_above=False) -> np.ndarray:
     if or_below and or_above:
         return np.full(arr.shape, True)
     elif not or_below and not or_above:
@@ -41,9 +42,8 @@ def is_close_to_zero(arr, or_below=False, or_above=False):
     else:
         return np.logical_or(np.isclose(arr, 0, atol=EPSILON), arr >= 0)
 
-# Todo: 1) check if copies actions are needed
 
-
+# For solving maximum problems
 class Simplex(object):
     def __init__(self):
         self.A = None
@@ -77,7 +77,7 @@ class Simplex(object):
 
     # This will get us options for variables to insert to the basis
     # (the picked one will be replaced with a var currently in the basis)
-    def _get_entering_options(self, z_coefs, rule):
+    def _get_entering_options(self, z_coefs, rule: PickingRule):
         if rule == PickingRule.DANTZING_RULE:
             sorted_indices = z_coefs.argsort()[-PAIRS_LIMIT:][::-1]
             return self.xn[sorted_indices]
@@ -98,7 +98,7 @@ class Simplex(object):
     # enables numerical stability option for diag element in eta
     # returns tuple entering_idx, leaving_idx, d, t
     # if found unbounded return entering_idx, None, d, None
-    def _pick_pair_to_swap(self, z_coefs, rule):
+    def _pick_pair_to_swap(self, z_coefs, rule: PickingRule):
         potential_entering = self._get_entering_options(z_coefs, rule)
         optional_pairs = []
         for entering_var_idx in potential_entering:
@@ -192,46 +192,52 @@ class Simplex(object):
         self.cur_assignment = self.cur_assignment[1:]
         self.cur_iteration = 1
 
-    def _get_optimal_from_feasible_solution(self, rule):
+    def _get_optimal_from_feasible_solution(self, rule: PickingRule)\
+            -> SimplexResult:
         while self.cur_iteration <= self.max_iterations:
             z_coefs = self._reconstruct_z_coefs()
             if all(is_close_to_zero(z_coefs, or_below=True)):
                 optimal_score = sum(self.cur_assignment * self.c)
-                return ResultCode.FINITE_OPTIMAL, self.cur_assignment, optimal_score
+                return SimplexResult(ResultCode.FINITE_OPTIMAL,
+                                     self.cur_assignment, optimal_score)
 
             entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(z_coefs,
                                                                       rule)
             if all(is_close_to_zero(d, or_below=True)):
-                return ResultCode.UNBOUNDED_OPTIMAL, None, None
+                return SimplexResult(ResultCode.UNBOUNDED_OPTIMAL,
+                                     self.cur_assignment, math.inf)
 
             self._swap_vars(entering_idx, leaving_idx)
             self._update_assignment(d, t, entering_idx)
 
             self.cur_iteration += 1
             self._refactorize_if_needed()
-        return ResultCode.CYCLE_DETECTED, None, None
 
-    def get_optimal_solution(self, A, b, c, rule=PickingRule.BLAND_RULE):
+        cur_score = sum(self.cur_assignment * self.c)
+        return SimplexResult(ResultCode.CYCLE_DETECTED, self.cur_assignment,
+                             cur_score)
+
+    def get_optimal_solution(self, A, b, c, rule=PickingRule.BLAND_RULE)\
+            -> SimplexResult:
         self._load_scenario(A, b, c)
 
         if not all(is_close_to_zero(b, or_above=True)):
             self._init_aux_problem(A, b, c)
-            _, aux_assignment, aux_score = \
-                self._get_optimal_from_feasible_solution(rule=rule)
-            if aux_score != 0:
-                return ResultCode.INFEASIBLE, None, None
+            aux_res = self._get_optimal_from_feasible_solution(rule=rule)
+            if aux_res.optimal_score != 0:
+                return SimplexResult(ResultCode.INFEASIBLE, None, None)
             self._pivot_to_original_problem(c)
 
         return self._get_optimal_from_feasible_solution(rule)
 
-    def has_feasible_solution(self, A, b, c):
+    def has_feasible_solution(self, A, b, c) -> bool:
         self._load_scenario(A, b, c)
         if all(is_close_to_zero(b, or_above=True)):
             return True
         else:
             self._init_aux_problem(A, b, c)
             aux_optimal_score = self._get_optimal_from_feasible_solution(
-                rule=PickingRule.BLAND_RULE)[2]
+                rule=PickingRule.BLAND_RULE).optimal_score
             if aux_optimal_score == 0:
                 return True
             return False
