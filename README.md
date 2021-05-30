@@ -1,5 +1,8 @@
 # RevisedSimplex
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+
 ## The Problem - Linear Programming Maximization Problem
 This repositry offers an implementation for an algorithm that solves Linear Programming configurations. A Linear Programming Maximization Problem is defined as:
 
