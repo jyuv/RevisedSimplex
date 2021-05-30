@@ -60,8 +60,9 @@ class Simplex(object):
         self.xb = np.arange(self.nvars - self.nrows, self.nvars)
         self.xn = np.arange(0, self.nvars - self.nrows)
 
-        self.cur_assignment = np.hstack((np.zeros(self.original_nvars),
-                                         self.b.copy().reshape(-1)))
+        self.cur_assignment = np.hstack(
+            (np.zeros(self.original_nvars), self.b.copy().reshape(-1))
+        )
         self.cur_assignment = self.cur_assignment.astype(float)
 
         self.estimated_B = np.eye(self.nrows).astype(float)
@@ -72,8 +73,10 @@ class Simplex(object):
 
     # z is a representation of the objective function only using the basis vars
     def _reconstruct_z_coefs(self):
-        return self.c[self.xn] - self.c[self.xb] @ self.estimated_inverse_B @\
-               self.A[:, self.xn]
+        return (
+            self.c[self.xn]
+            - self.c[self.xb] @ self.estimated_inverse_B @ self.A[:, self.xn]
+        )
 
     # This will get us options for variables to insert to the basis
     # (the picked one will be replaced with a var currently in the basis)
@@ -112,8 +115,9 @@ class Simplex(object):
             if eta_diag_element > EPSILON:
                 return entering_var_idx, leaving_var_idx, d, t
             else:
-                optional_pairs.append((eta_diag_element, entering_var_idx,
-                                      leaving_var_idx, d, t))
+                optional_pairs.append(
+                    (eta_diag_element, entering_var_idx, leaving_var_idx, d, t)
+                )
 
         optional_etas = [x[0] for x in optional_pairs]
         largest_eta_option_index = int(np.argmax(optional_etas))
@@ -134,7 +138,7 @@ class Simplex(object):
         return new_eta, new_inverse_eta
 
     def _refactorize_if_needed(self):
-        if np.linalg.cond(self.A[:, self.xb]) >= 1/EPSILON:
+        if np.linalg.cond(self.A[:, self.xb]) >= 1 / EPSILON:
             # singular matrix
             return False
 
@@ -182,7 +186,7 @@ class Simplex(object):
         # adapt assignment
         self.cur_assignment[self.xn] = 0
         self.cur_assignment[self.xb] = self.b.reshape(-1) - float(min(b))
-        self.cur_assignment[0] = - min(b)
+        self.cur_assignment[0] = -min(b)
 
     def _pivot_to_original_problem(self, original_c):
         self.A = self.A[:, 1:]
@@ -192,20 +196,26 @@ class Simplex(object):
         self.cur_assignment = self.cur_assignment[1:]
         self.cur_iteration = 1
 
-    def _get_optimal_from_feasible_solution(self, rule: PickingRule)\
-            -> SimplexResult:
+    def _get_optimal_from_feasible_solution(
+        self, rule: PickingRule
+    ) -> SimplexResult:
         while self.cur_iteration <= self.max_iterations:
             z_coefs = self._reconstruct_z_coefs()
             if all(is_close_to_zero(z_coefs, or_below=True)):
                 optimal_score = sum(self.cur_assignment * self.c)
-                return SimplexResult(ResultCode.FINITE_OPTIMAL,
-                                     self.cur_assignment, optimal_score)
+                return SimplexResult(
+                    ResultCode.FINITE_OPTIMAL,
+                    self.cur_assignment,
+                    optimal_score,
+                )
 
-            entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(z_coefs,
-                                                                      rule)
+            entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(
+                z_coefs, rule
+            )
             if all(is_close_to_zero(d, or_below=True)):
-                return SimplexResult(ResultCode.UNBOUNDED_OPTIMAL,
-                                     self.cur_assignment, math.inf)
+                return SimplexResult(
+                    ResultCode.UNBOUNDED_OPTIMAL, self.cur_assignment, math.inf
+                )
 
             self._swap_vars(entering_idx, leaving_idx)
             self._update_assignment(d, t, entering_idx)
@@ -214,11 +224,13 @@ class Simplex(object):
             self._refactorize_if_needed()
 
         cur_score = sum(self.cur_assignment * self.c)
-        return SimplexResult(ResultCode.CYCLE_DETECTED, self.cur_assignment,
-                             cur_score)
+        return SimplexResult(
+            ResultCode.CYCLE_DETECTED, self.cur_assignment, cur_score
+        )
 
-    def get_optimal_solution(self, A, b, c, rule=PickingRule.BLAND_RULE)\
-            -> SimplexResult:
+    def get_optimal_solution(
+        self, A, b, c, rule=PickingRule.BLAND_RULE
+    ) -> SimplexResult:
         self._load_scenario(A, b, c)
 
         if not all(is_close_to_zero(b, or_above=True)):
@@ -237,7 +249,8 @@ class Simplex(object):
         else:
             self._init_aux_problem(A, b, c)
             aux_optimal_score = self._get_optimal_from_feasible_solution(
-                rule=PickingRule.BLAND_RULE).optimal_score
+                rule=PickingRule.BLAND_RULE
+            ).optimal_score
             if aux_optimal_score == 0:
                 return True
             return False

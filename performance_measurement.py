@@ -13,10 +13,13 @@ MAX_INT_ELEMENT = 2147483647
 
 SIMPLEX_SOLVER = Simplex()
 
-FUNCS_TO_ANALYZE = {"ours full simplex": SIMPLEX_SOLVER.get_optimal_solution,
-                    "ours feasible check": SIMPLEX_SOLVER.has_feasible_solution,
-                    "scipy's revised simplex": lambda a, b, c: linprog(
-    A_ub=a, b_ub=b, c=-c, method="revised simplex")}
+FUNCS_TO_ANALYZE = {
+    "ours full simplex": SIMPLEX_SOLVER.get_optimal_solution,
+    "ours feasible check": SIMPLEX_SOLVER.has_feasible_solution,
+    "scipy's revised simplex": lambda a, b, c: linprog(
+        A_ub=a, b_ub=b, c=-c, method="revised simplex"
+    ),
+}
 
 
 @dataclass
@@ -29,8 +32,9 @@ class TestCase(object):
 def get_random_cases(cases_amount: int = CASES_AMOUNT):
     cases = []
     for case in range(cases_amount):
-        A, b, c = generate_random_case(MAX_M, MAX_M,
-                                       MIN_INT_ELEMENT, MAX_INT_ELEMENT)
+        A, b, c = generate_random_case(
+            MAX_M, MAX_M, MIN_INT_ELEMENT, MAX_INT_ELEMENT
+        )
         cases.append(TestCase(A, b, c))
     return cases
 

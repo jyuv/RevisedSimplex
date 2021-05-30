@@ -12,16 +12,19 @@ MAX_N = 10
 MIN_INT_ELEMENT = -2147483648
 MAX_INT_ELEMENT = 2147483647
 
-LINPROG_RCODE_TO_RCODE = {0: ResultCode.FINITE_OPTIMAL,
-                          1: ResultCode.CYCLE_DETECTED,
-                          2: ResultCode.INFEASIBLE,
-                          3: ResultCode.UNBOUNDED_OPTIMAL}
+LINPROG_RCODE_TO_RCODE = {
+    0: ResultCode.FINITE_OPTIMAL,
+    1: ResultCode.CYCLE_DETECTED,
+    2: ResultCode.INFEASIBLE,
+    3: ResultCode.UNBOUNDED_OPTIMAL,
+}
 
 SIMPLEX_SOLVER = Simplex()
 
 
-def generate_random_case(max_m=MAX_M, max_n=MAX_N,
-                         min_int=MIN_INT_ELEMENT, max_int=MAX_INT_ELEMENT):
+def generate_random_case(
+    max_m=MAX_M, max_n=MAX_N, min_int=MIN_INT_ELEMENT, max_int=MAX_INT_ELEMENT
+):
     m, n = [random.randint(1, end) for end in (max_m, max_n)]
     A = np.random.randint(min_int, max_int, size=(m, n))
     b = np.random.randint(min_int, max_int, size=m)
@@ -36,8 +39,10 @@ def test_unbounded():
     c = np.array([1, 3])
 
     assert SIMPLEX_SOLVER.has_feasible_solution(A, b, c)
-    assert SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code == \
-           ResultCode.UNBOUNDED_OPTIMAL
+    assert (
+        SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code
+        == ResultCode.UNBOUNDED_OPTIMAL
+    )
 
 
 def test_infeasible():
@@ -46,8 +51,10 @@ def test_infeasible():
     c = np.array([3])
 
     assert not SIMPLEX_SOLVER.has_feasible_solution(A, b, c)
-    assert SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code == \
-           ResultCode.INFEASIBLE
+    assert (
+        SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code
+        == ResultCode.INFEASIBLE
+    )
 
 
 def test_finite_feasible():
@@ -75,6 +82,7 @@ def test_random_cases():
             assert expected_res_code == res.res_code
             if expected_res_code == ResultCode.FINITE_OPTIMAL:
                 assert math.isclose(expected_res.fun, -res.optimal_score)
+
 
 # Todo: move performance check into performance measurment when differences
 #       figured out
