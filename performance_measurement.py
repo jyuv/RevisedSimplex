@@ -5,7 +5,7 @@ from test_simplex import generate_random_case
 from Simplex import Simplex
 from scipy.optimize import linprog
 
-CASES_AMOUNT = 1000
+CASES_AMOUNT = 10000
 MAX_M = 15
 MAX_N = 10
 MIN_INT_ELEMENT = -2147483648
@@ -14,9 +14,11 @@ MAX_INT_ELEMENT = 2147483647
 SIMPLEX_SOLVER = Simplex()
 
 FUNCS_TO_ANALYZE = {
-    "ours full simplex": SIMPLEX_SOLVER.get_optimal_solution,
-    "ours feasible check": SIMPLEX_SOLVER.has_feasible_solution,
-    "scipy's revised simplex": lambda a, b, c: linprog(
+    "RevisedSimplex's full revised simplex":
+        SIMPLEX_SOLVER.get_optimal_solution,
+    "RevisedSimplex's feasible solution check":
+        SIMPLEX_SOLVER.has_feasible_solution,
+    "Scipy's revised simplex method": lambda a, b, c: linprog(
         A_ub=a, b_ub=b, c=-c, method="revised simplex"
     ),
 }
@@ -53,7 +55,8 @@ def compare_performance():
         performances[func_desc] = measure_time(cases, func)
 
     for func_desc, duration in performances.items():
-        print("The duration of running {0}: {1}".format(func_desc, duration))
+        print(f"The total duration of running {func_desc} on {CASES_AMOUNT}"
+              f" random cases: {duration}s")
 
 
 if __name__ == "__main__":
