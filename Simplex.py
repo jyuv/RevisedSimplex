@@ -14,6 +14,7 @@ class PickingRule(Enum):
     Rule for picking the next entering variable. for more information see
     http://elib.mi.sanu.ac.rs/files/journals/yjor/50/yujorn50p321-332.pdf
     """
+
     BLAND_RULE = 1
     DANTZING_RULE = 2
 
@@ -22,6 +23,7 @@ class ResultCode(Enum):
     """
     Codes indicating the result type given by the simplex algorithm
     """
+
     INFEASIBLE = 1
     FINITE_OPTIMAL = 2
     UNBOUNDED_OPTIMAL = 3
@@ -33,6 +35,7 @@ class SimplexResult(object):
     """
     The returned object from the simplex get_optimal_solution.
     """
+
     res_code: ResultCode
     assignment: Optional[np.ndarray]
     optimal_score: Optional[float]
@@ -42,8 +45,7 @@ EPSILON = sys.float_info.epsilon
 PAIRS_LIMIT = 5
 
 
-def is_close_to_zero(arr: np.ndarray, or_below=False, or_above=False)\
-        -> np.ndarray:
+def is_close_to_zero(arr: np.ndarray, or_below=False, or_above=False) -> np.ndarray:
     """
     An array version of elementwise < 0 / <= 0 / >= 0 / == 0.
     The exact operation is determined by the booleans args or_below & or_above
@@ -68,14 +70,14 @@ class Simplex(object):
     A simplex solver object for solving max problems.
     It has 2 external api methods: get_optimal_solution & has_feasible_solution
     """
+
     def __init__(self):
         self.A = None
         self.b = None
         self.c = None
         self.cur_assignment = None
 
-    def _load_scenario(self, A: np.ndarray, b: np.ndarray, c: np.ndarray)\
-            -> None:
+    def _load_scenario(self, A: np.ndarray, b: np.ndarray, c: np.ndarray) -> None:
         """
         Loading a linear programming case into the solver.
         The case is of the form:
@@ -120,8 +122,7 @@ class Simplex(object):
             - self.c[self.xb] @ self.estimated_inverse_B @ self.A[:, self.xn]
         )
 
-    def _get_entering_options(self, z_coefs: np.ndarray, rule: PickingRule) \
-            -> Iterable:
+    def _get_entering_options(self, z_coefs: np.ndarray, rule: PickingRule) -> Iterable:
         """
         Get options for possible valid entering variables
         (variables to enter the basis). This method returns at most
@@ -159,8 +160,9 @@ class Simplex(object):
         leaving_idx = bounded_vars_idxs[np.argmin(bounds_vector)]
         return leaving_idx, t
 
-    def _pick_pair_to_swap(self, z_coefs: np.ndarray, rule: PickingRule) ->\
-            Tuple[int, int, np.ndarray, int]:
+    def _pick_pair_to_swap(
+        self, z_coefs: np.ndarray, rule: PickingRule
+    ) -> Tuple[int, int, np.ndarray, int]:
         """
         Pick a pair of entering variable and leaving variable to swap.
         This method makes tries to avoid pairs in which there is a very small
@@ -208,8 +210,9 @@ class Simplex(object):
         """
         return self.estimated_inverse_B @ self.A[:, entering_var_idx]
 
-    def _get_eta_and_inverse(self, loc_replaced: int, d: np.ndarray) \
-            -> Tuple[np.ndarray, np.ndarray]:
+    def _get_eta_and_inverse(
+        self, loc_replaced: int, d: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Get the eta matrix and its inverse for the variables swap. This
         will allow to update the estimation of B (The basis slice of A)
@@ -247,8 +250,7 @@ class Simplex(object):
         l, u = linalg.lu(self.A[:, self.xb], True)
         self.estimated_inverse_B = linalg.inv(u) @ linalg.inv(l)
 
-    def _update_estimated_b_and_inverse(self, loc_replaced: int, d: np.ndarray)\
-            -> None:
+    def _update_estimated_b_and_inverse(self, loc_replaced: int, d: np.ndarray) -> None:
         """
         Updates the estimation of B (the basis slice of A) and its inverse.
         The inverse is important to reconstruct z and get d.
@@ -276,8 +278,7 @@ class Simplex(object):
 
         self._update_estimated_b_and_inverse(loc_in_xb, d)
 
-    def _update_assignment(self, d: np.ndarray, t: int,
-                           entering_var_idx: int) -> None:
+    def _update_assignment(self, d: np.ndarray, t: int, entering_var_idx: int) -> None:
         """
         Updates the assignments of the variables after a swap
         :param d: A vector of the coefficients of the leaving variable in the
@@ -289,8 +290,7 @@ class Simplex(object):
         self.cur_assignment[self.xb] -= t * d
         self.cur_assignment[entering_var_idx] = t
 
-    def _init_aux_problem(self, A: np.ndarray, b: np.ndarray, c: np.ndarray)\
-            -> None:
+    def _init_aux_problem(self, A: np.ndarray, b: np.ndarray, c: np.ndarray) -> None:
         """
         Initialize the solver with the auxiliary problem to the standard
         linear programming problem. For more information on the auxiliary
@@ -330,9 +330,7 @@ class Simplex(object):
         self.cur_assignment = self.cur_assignment[1:]
         self.cur_iteration = 1
 
-    def _get_optimal_from_feasible_solution(
-        self, rule: PickingRule
-    ) -> SimplexResult:
+    def _get_optimal_from_feasible_solution(self, rule: PickingRule) -> SimplexResult:
         """
         Gets the optimal solution for a linear programming problem
         (already loaded to the solver) which is known
@@ -350,9 +348,7 @@ class Simplex(object):
                     optimal_score,
                 )
 
-            entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(
-                z_coefs, rule
-            )
+            entering_idx, leaving_idx, d, t = self._pick_pair_to_swap(z_coefs, rule)
             if all(is_close_to_zero(d, or_below=True)):
                 return SimplexResult(
                     ResultCode.UNBOUNDED_OPTIMAL, self.cur_assignment, math.inf
@@ -365,13 +361,10 @@ class Simplex(object):
             self._refactor_if_needed()
 
         cur_score = sum(self.cur_assignment * self.c)
-        return SimplexResult(
-            ResultCode.CYCLE_DETECTED, self.cur_assignment, cur_score
-        )
+        return SimplexResult(ResultCode.CYCLE_DETECTED, self.cur_assignment, cur_score)
 
     def get_optimal_solution(
-        self, A: np.ndarray, b: np.ndarray, c: np.ndarray,
-            rule=PickingRule.BLAND_RULE
+        self, A: np.ndarray, b: np.ndarray, c: np.ndarray, rule=PickingRule.BLAND_RULE
     ) -> SimplexResult:
         """
         Gets the optimal solution for a linear programming problem in the form
@@ -396,8 +389,9 @@ class Simplex(object):
 
         return self._get_optimal_from_feasible_solution(rule)
 
-    def has_feasible_solution(self, A: np.ndarray, b: np.ndarray,
-                              c: np.ndarray) -> bool:
+    def has_feasible_solution(
+        self, A: np.ndarray, b: np.ndarray, c: np.ndarray
+    ) -> bool:
         """
         Check if the linear programming case represented by A, b, c has some
         feasible solution where feasible solution is some x >= 0 (elementwise)

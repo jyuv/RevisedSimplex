@@ -51,8 +51,7 @@ def test_infeasible():
 
     assert not SIMPLEX_SOLVER.has_feasible_solution(A, b, c)
     assert (
-        SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code
-        == ResultCode.INFEASIBLE
+        SIMPLEX_SOLVER.get_optimal_solution(A, b, c).res_code == ResultCode.INFEASIBLE
     )
 
 
