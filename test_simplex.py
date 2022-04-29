@@ -1,6 +1,5 @@
 import math
 import random
-import time
 
 import numpy as np
 from scipy.optimize import linprog
@@ -82,42 +81,3 @@ def test_random_cases():
             assert expected_res_code == res.res_code
             if expected_res_code == ResultCode.FINITE_OPTIMAL:
                 assert math.isclose(expected_res.fun, -res.optimal_score)
-
-
-# Todo: move performance check into performance measurment when differences
-#       figured out
-
-
-def compare_performance():
-    A_list, b_list, c_list = [], [], []
-    for case in range(RANDOM_CASES):
-        A, b, c = generate_random_case()
-        A_list.append(A)
-        b_list.append(b)
-        c_list.append(c)
-
-    cur_start_time = time.time()
-    for case in range(RANDOM_CASES):
-        A, b, c = A_list[case], b_list[case], c_list[case]
-        SIMPLEX_SOLVER.get_optimal_solution(A, b, c)
-    time_ours_full = time.time() - cur_start_time
-
-    cur_start_time = time.time()
-    for case in range(RANDOM_CASES):
-        A, b, c = A_list[case], b_list[case], c_list[case]
-        linprog(A_ub=A, b_ub=b, c=-c, method="revised simplex")
-    time_scipy = time.time() - cur_start_time
-
-    cur_start_time = time.time()
-    for case in range(RANDOM_CASES):
-        A, b, c = A_list[case], b_list[case], c_list[case]
-        SIMPLEX_SOLVER.has_feasible_solution(A, b, c)
-    time_ours_feasible = time.time() - cur_start_time
-
-    print("The time of scipy's linprog: {0}".format(time_scipy))
-    print("The time of ours full simplex: {0}".format(time_ours_full))
-    print("The time of ours feasible simplex: {0}".format(time_ours_feasible))
-
-
-if __name__ == "__main__":
-    compare_performance()
