@@ -68,3 +68,8 @@ solver.has_feasible_solution(A, b, c)
 The performance of this repository was compared to scipy's revised-simplex method by running 10,000 random generated configurations.
 The results show **an improvement of 16%** compared to scipy's performance when **running the full revised simplex** (searching for optimal solution).
 The more humble method **(has_feasible_solution) was 41% faster** than scipy's full revised simplex.
+
+
+<p align=center>
+<img src="https://github.com/jyuv/RevisedSimplex/blob/main/assets/stats.png?raw=true">
+</p>
